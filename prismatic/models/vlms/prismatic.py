@@ -8,6 +8,7 @@ Notes:
       of the {Model}ForCausalLM API that enables dispatch to the underlying LLM's `generate` utilities (feeding inputs
       through our custom projection shim).
 """
+
 from __future__ import annotations
 
 from functools import partial
@@ -529,6 +530,67 @@ class PrismaticVLM(VLM):
                     gen_probabilities.append(string_probs.cpu().numpy().tolist())
 
         return gen_texts if return_string_probabilities is None else gen_probabilities
+
+    @torch.inference_mode()
+    def get_loss(
+        self,
+        image: Image,
+        text: List[str],
+        return_string_probabilities: List[str],
+        **kwargs: str,
+    ) -> Union[List[str], List[List[float]]]:
+        # For now, follow original LLaVa code and only support generating with a batch size of 1 for simplicity
+        image_transform, tokenizer = self.vision_backbone.image_transform, self.llm_backbone.tokenizer
+
+        # Prepare Inputs
+        input_ids = tokenizer(text, truncation=True, return_tensors="pt").input_ids.to(self.device)
+        pixel_values = image_transform(image)
+        if isinstance(pixel_values, torch.Tensor):
+            pixel_values = pixel_values[None, ...].to(self.device)
+        elif isinstance(pixel_values, dict):
+            pixel_values = {k: v[None, ...].to(self.device) for k, v in pixel_values.items()}
+        else:
+            raise ValueError(f"Unsupported `pixel_values` type = {type(pixel_values)}")
+
+        # Create Output Lists
+        gen_texts, gen_losses = [], []
+
+        # Invoke super().generate --> taps into `GenerationMixin` which (redirects) to `forward()`
+        autocast_dtype = self.llm_backbone.half_precision_dtype
+        with torch.autocast(
+            "cuda",
+            dtype=autocast_dtype,
+            enabled=self.enable_half_precision_backbones or self.enable_mixed_precision_training,
+        ):
+            full_out_dict = super().generate(
+                input_ids=input_ids,
+                pixel_values=pixel_values,
+                output_scores=True,
+                return_dict_in_generate=True,
+                **kwargs,
+            )
+
+            # Generation pattern should usually be [TOKEN] <EOS> for True/False and Yes/No Generations
+            gen_ids = full_out_dict.sequences[0, input_ids.shape[1] :]
+
+            # [Debug] Verify that the first token generated is in `self.string2idx.values()`
+            # assert gen_ids[0] in self.string2idx.values(), "Generated ID not in mapping!"
+
+            # Decode `gen_ids` and strip any <EOS> tokens
+            gen_texts.append(tokenizer.decode(gen_ids, skip_special_tokens=True).strip())
+
+            # Get all token probabilities --> softmax over logits
+            token_logits = full_out_dict.scores[0][0]
+            # token_probs = torch.softmax(full_out_dict.scores[0][0], dim=0)
+            # token_probs = full_out_dict.scores[0][0]
+
+            # Get *normalized* probabilities for all values in `return_token_probabilities`
+            slice_idxs = torch.tensor([self.string2idx[s] for s in return_string_probabilities])
+            string_losses_unnormalized = -token_logits[slice_idxs]
+            # string_probs = string_loss_unnormalized / string_loss_unnormalized.sum()
+            gen_losses.append(string_losses_unnormalized.cpu().numpy().tolist())
+
+        return gen_losses
 
     @torch.inference_mode()
     def generate(self, image: Image, prompt_text: str, **kwargs: str) -> str:
