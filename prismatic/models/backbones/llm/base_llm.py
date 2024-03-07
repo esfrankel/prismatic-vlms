@@ -11,10 +11,12 @@ the AutoModelForCausalLM API (though we may add Seq2Seq models in the future).
 We make this assumption to keep the LLM handling in this codebase relatively lightweight, and to inherit all the nice HF
 utilities around different types of decoding/generation strategies.
 """
+
 import warnings
 from abc import ABC, abstractmethod
 from functools import partial
 from typing import Callable, List, Optional, Type
+import logging
 
 import torch
 import torch.nn as nn
@@ -23,13 +25,14 @@ from transformers import AutoConfig, AutoTokenizer, PreTrainedModel, PreTrainedT
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from prismatic.models.backbones.llm.prompting import PromptBuilder
-from prismatic.overwatch import initialize_overwatch
+
+# from prismatic.overwatch import initialize_overwatch
 
 # Suppress HF Deprecation Warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
-overwatch = initialize_overwatch(__name__)
+# overwatch = initialize_overwatch(__name__)
 
 
 # === Abstract Base Class for arbitrary HF LLM Backbones ===
@@ -113,7 +116,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
         # Initialize LLM (downloading from HF Hub if necessary) --> `llm_cls` is the actual {Model}ForCausalLM class!
         #   => Note: We're eschewing use of the AutoModel API so that we can be more explicit about LLM-specific details
         if not self.inference_mode:
-            overwatch.info(f"Loading [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
+            logging.info(f"Loading [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
             self.llm = llm_cls.from_pretrained(
                 hf_hub_path,
                 token=hf_token,
@@ -126,7 +129,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
 
         # [Contract] `inference_mode` means we're loading from a pretrained checkpoint; no need to load base weights!
         else:
-            overwatch.info(f"Building empty [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
+            logging.info(f"Building empty [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
             llm_config = AutoConfig.from_pretrained(hf_hub_path, token=hf_token)
             self.llm = llm_cls._from_config(llm_config)
             #
@@ -148,7 +151,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
             self.llm.enable_input_require_grads()
 
         # Load (Fast) Tokenizer
-        overwatch.info(f"Loading [bold]{llm_family}[/] (Fast) Tokenizer via the AutoTokenizer API", ctx_level=1)
+        logging.info(f"Loading [bold]{llm_family}[/] (Fast) Tokenizer via the AutoTokenizer API", ctx_level=1)
         self.tokenizer = AutoTokenizer.from_pretrained(hf_hub_path, model_max_length=self.llm_max_length, token=hf_token)
 
         # Validation =>> Our VLM logic currently operates under the assumption that the tokenization of a new input

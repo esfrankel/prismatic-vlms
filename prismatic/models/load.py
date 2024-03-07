@@ -4,20 +4,22 @@ load.py
 Entry point for loading pretrained VLMs for inference; exposes functions for listing available models (with canonical
 IDs, mappings to paper experiments, and short descriptions), as well as for loading models (from disk or HF Hub).
 """
+
 import json
 import os
 from pathlib import Path
 from typing import List, Optional, Union
-
+import logging
 from huggingface_hub import hf_hub_download
 
 from prismatic.models.materialize import get_llm_backbone_and_tokenizer, get_vision_backbone_and_transform
 from prismatic.models.registry import GLOBAL_REGISTRY, MODEL_REGISTRY
 from prismatic.models.vlms import PrismaticVLM
-from prismatic.overwatch import initialize_overwatch
+
+# from prismatic.overwatch import initialize_overwatch
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
-overwatch = initialize_overwatch(__name__)
+# overwatch = initialize_overwatch(__name__)
 
 
 # === HF Hub Repository ===
@@ -49,7 +51,7 @@ def load(
 ) -> PrismaticVLM:
     """Loads a pretrained PrismaticVLM from either local disk or the HuggingFace Hub."""
     if os.path.isdir(model_id_or_path):
-        overwatch.info(f"Loading from local path `{(run_dir := Path(model_id_or_path))}`")
+        logging.info(f"Loading from local path `{(run_dir := Path(model_id_or_path))}`")
 
         # Get paths for `config.json` and pretrained checkpoint
         assert (config_json := run_dir / "config.json").exists(), f"Missing `config.json` for `{run_dir = }`"
@@ -58,7 +60,7 @@ def load(
         if model_id_or_path not in GLOBAL_REGISTRY:
             raise ValueError(f"Couldn't find `{model_id_or_path = }; check `prismatic.available_model_names()`")
 
-        overwatch.info(f"Downloading `{(model_id := GLOBAL_REGISTRY[model_id_or_path]['model_id'])} from HF Hub")
+        logging.info(f"Downloading `{(model_id := GLOBAL_REGISTRY[model_id_or_path]['model_id'])} from HF Hub")
         config_json = hf_hub_download(repo_id=HF_HUB_REPO, filename=f"{model_id}/config.json", cache_dir=cache_dir)
         checkpoint_pt = hf_hub_download(
             repo_id=HF_HUB_REPO, filename=f"{model_id}/checkpoints/latest-checkpoint.pt", cache_dir=cache_dir
@@ -70,7 +72,7 @@ def load(
 
     # = Load Individual Components necessary for Instantiating a VLM =
     #   =>> Print Minimal Config
-    overwatch.info(
+    logging.info(
         f"Found Config =>> Loading & Freezing [bold blue]{model_cfg['model_id']}[/] with:\n"
         f"             Vision Backbone =>> [bold]{model_cfg['vision_backbone_id']}[/]\n"
         f"             LLM Backbone    =>> [bold]{model_cfg['llm_backbone_id']}[/]\n"
@@ -79,14 +81,14 @@ def load(
     )
 
     # Load Vision Backbone
-    overwatch.info(f"Loading Vision Backbone [bold]{model_cfg['vision_backbone_id']}[/]")
+    logging.info(f"Loading Vision Backbone [bold]{model_cfg['vision_backbone_id']}[/]")
     vision_backbone, image_transform = get_vision_backbone_and_transform(
         model_cfg["vision_backbone_id"],
         model_cfg["image_resize_strategy"],
     )
 
     # Load LLM Backbone --> note `inference_mode = True` by default when calling `load()`
-    overwatch.info(f"Loading Pretrained LLM [bold]{model_cfg['llm_backbone_id']}[/] via HF Transformers")
+    logging.info(f"Loading Pretrained LLM [bold]{model_cfg['llm_backbone_id']}[/] via HF Transformers")
     llm_backbone, tokenizer = get_llm_backbone_and_tokenizer(
         model_cfg["llm_backbone_id"],
         llm_max_length=model_cfg.get("llm_max_length", 2048),
@@ -95,7 +97,7 @@ def load(
     )
 
     # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)
-    overwatch.info(f"Loading VLM [bold blue]{model_cfg['model_id']}[/] from Checkpoint; Freezing Weights 🥶")
+    logging.info(f"Loading VLM [bold blue]{model_cfg['model_id']}[/] from Checkpoint; Freezing Weights 🥶")
     vlm = PrismaticVLM.from_pretrained(
         checkpoint_pt,
         model_cfg["model_id"],
