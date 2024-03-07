@@ -567,6 +567,7 @@ class PrismaticVLM(VLM):
                 pixel_values=pixel_values,
                 output_scores=True,
                 return_dict_in_generate=True,
+                max_new_tokens=1,
                 **kwargs,
             )
 
