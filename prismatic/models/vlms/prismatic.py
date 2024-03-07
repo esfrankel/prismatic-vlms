@@ -560,7 +560,7 @@ class PrismaticVLM(VLM):
         with torch.autocast(
             "cuda",
             dtype=autocast_dtype,
-            enabled=self.enable_half_precision_backbones or self.enable_mixed_precision_training,
+            enabled=self.enable_mixed_precision_training,
         ):
             full_out_dict = super().generate(
                 input_ids=input_ids,
@@ -589,7 +589,6 @@ class PrismaticVLM(VLM):
             string_losses_unnormalized = -token_logits[slice_idxs]
             # string_probs = string_loss_unnormalized / string_loss_unnormalized.sum()
             gen_losses.append(string_losses_unnormalized.cpu().numpy().tolist())
-
         return gen_losses
 
     @torch.inference_mode()
