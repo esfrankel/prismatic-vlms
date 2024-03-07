@@ -116,7 +116,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
         # Initialize LLM (downloading from HF Hub if necessary) --> `llm_cls` is the actual {Model}ForCausalLM class!
         #   => Note: We're eschewing use of the AutoModel API so that we can be more explicit about LLM-specific details
         if not self.inference_mode:
-            logging.info(f"Loading [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
+            logging.info(f"Loading [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]")
             self.llm = llm_cls.from_pretrained(
                 hf_hub_path,
                 token=hf_token,
@@ -129,7 +129,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
 
         # [Contract] `inference_mode` means we're loading from a pretrained checkpoint; no need to load base weights!
         else:
-            logging.info(f"Building empty [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
+            logging.info(f"Building empty [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]")
             llm_config = AutoConfig.from_pretrained(hf_hub_path, token=hf_token)
             self.llm = llm_cls._from_config(llm_config)
             #
@@ -151,7 +151,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
             self.llm.enable_input_require_grads()
 
         # Load (Fast) Tokenizer
-        logging.info(f"Loading [bold]{llm_family}[/] (Fast) Tokenizer via the AutoTokenizer API", ctx_level=1)
+        logging.info(f"Loading [bold]{llm_family}[/] (Fast) Tokenizer via the AutoTokenizer API")
         self.tokenizer = AutoTokenizer.from_pretrained(hf_hub_path, model_max_length=self.llm_max_length, token=hf_token)
 
         # Validation =>> Our VLM logic currently operates under the assumption that the tokenization of a new input

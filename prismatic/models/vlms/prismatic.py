@@ -143,9 +143,9 @@ class PrismaticVLM(VLM):
             self.vision_backbone_requires_grad = False
 
             # Explicitly Log Frozen / Trainable Components
-            logging.info(f"[Frozen]    🥶 =>> Vision Backbone `{self.vision_backbone.identifier}`", ctx_level=1)
-            logging.info(f"[Frozen]    🥶 =>> LLM Backbone `{self.llm_backbone.identifier}`", ctx_level=1)
-            logging.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`", ctx_level=1)
+            logging.info(f"[Frozen]    🥶 =>> Vision Backbone `{self.vision_backbone.identifier}`")
+            logging.info(f"[Frozen]    🥶 =>> LLM Backbone `{self.llm_backbone.identifier}`")
+            logging.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`")
 
         elif stage == "finetune":
             self.vision_backbone.requires_grad_(False)
@@ -159,9 +159,9 @@ class PrismaticVLM(VLM):
             self.vision_backbone_requires_grad = False
 
             # Explicitly Log Frozen / Unfrozen Components
-            logging.info(f"[Frozen]    🥶 =>> Vision Backbone `{self.vision_backbone.identifier}`", ctx_level=1)
-            logging.info(f"[TRAINABLE] 🔥 =>> LLM Backbone `{self.llm_backbone.identifier}`", ctx_level=1)
-            logging.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`", ctx_level=1)
+            logging.info(f"[Frozen]    🥶 =>> Vision Backbone `{self.vision_backbone.identifier}`")
+            logging.info(f"[TRAINABLE] 🔥 =>> LLM Backbone `{self.llm_backbone.identifier}`")
+            logging.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`")
 
         elif stage == "full-finetune":
             self.vision_backbone.dtype = torch.float32
@@ -176,9 +176,9 @@ class PrismaticVLM(VLM):
             self.vision_backbone_requires_grad = True
 
             # Explicitly Log Frozen / Unfrozen Components
-            logging.info(f"[TRAINABLE] 🔥 =>> Vision Backbone `{self.vision_backbone.identifier}`", ctx_level=1)
-            logging.info(f"[TRAINABLE] 🔥 =>> LLM Backbone `{self.llm_backbone.identifier}`", ctx_level=1)
-            logging.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`", ctx_level=1)
+            logging.info(f"[TRAINABLE] 🔥 =>> Vision Backbone `{self.vision_backbone.identifier}`")
+            logging.info(f"[TRAINABLE] 🔥 =>> LLM Backbone `{self.llm_backbone.identifier}`")
+            logging.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`")
 
         else:
             raise ValueError(f"Stage `{stage}` is not supported for LLaVa! Try < align | finetune >")
@@ -189,22 +189,20 @@ class PrismaticVLM(VLM):
 
         # If we're running a `no-align` architecture, we're good!
         if self.arch_specifier.startswith("no-align"):
-            logging.info(
-                f"PrismaticVLM with `{self.arch_specifier = }` does not require pretrained weights!", ctx_level=1
-            )
+            logging.info(f"PrismaticVLM with `{self.arch_specifier = }` does not require pretrained weights!")
             return
 
         # Otherwise, handle stage-specific logic!
         if stage == "align":
-            logging.info("Stage `align` does not require pretrained weights =>> Starting Training", ctx_level=1)
+            logging.info("Stage `align` does not require pretrained weights =>> Starting Training")
             return
 
         # Otherwise, load from `pretrained_checkpoint` or match on `run_dir` (s/+stage-finetune/+stage-align/g)
-        logging.info("Stage `finetune` requires `align` pretrained weights", ctx_level=1)
+        logging.info("Stage `finetune` requires `align` pretrained weights")
 
         # Config specifies path to a checkpoint to load
         if pretrained_checkpoint is not None:
-            logging.info(f"Loading from Provided Checkpoint `{pretrained_checkpoint}`", ctx_level=1)
+            logging.info(f"Loading from Provided Checkpoint `{pretrained_checkpoint}`")
             model_state_dict = torch.load(pretrained_checkpoint)["model"]
             self.projector.load_state_dict(model_state_dict["projector"])
 
@@ -219,7 +217,7 @@ class PrismaticVLM(VLM):
         ]
         assert len(align_dirs) == 1, "Multiple or No Valid Pretrained Directories Exist -- Double Check `runs`!"
         if (pretrained_checkpoint := (align_dirs[0] / "checkpoints" / "latest-checkpoint.pt")).exists():
-            logging.info(f"Loading from Discovered Checkpoint `{pretrained_checkpoint}`", ctx_level=1)
+            logging.info(f"Loading from Discovered Checkpoint `{pretrained_checkpoint}`")
             model_state_dict = torch.load(pretrained_checkpoint)["model"]
             self.projector.load_state_dict(model_state_dict["projector"])
         else:
