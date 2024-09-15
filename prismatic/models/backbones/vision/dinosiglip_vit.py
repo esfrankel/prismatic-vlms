@@ -136,9 +136,8 @@ class DinoSigLIPViTBackbone(VisionBackbone):
 
     def forward(self, pixel_values: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Runs the transformed image/pixel tensors through each vision backbone, returning concatenated patches."""
-        dino_patches = self.dino_featurizer(pixel_values["dino"])
-        siglip_patches = self.siglip_featurizer(pixel_values["siglip"])
-
+        dino_patches = self.dino_featurizer(pixel_values["dino"])[0]
+        siglip_patches = self.siglip_featurizer(pixel_values["siglip"])[0]        
         return torch.cat([dino_patches, siglip_patches], dim=2)
 
     @property
